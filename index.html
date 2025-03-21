@@ -7,8 +7,30 @@
 Your browser does not support the HTML canvas tag.
 </canvas>
 
-<script>
+<!-- light adjusting -->
+<div style="display: flex; flex-direction: column; gap: 8px; max-width: 300px; padding: 10px;">
+    <label>ambient strength: 
+        <input type="range" id="ambientSlider" min="0" max="1" step="0.01" value="0.5">
+    </label>
 
+    <label>specular strength: 
+        <input type="range" id="specularSlider" min="0" max="1" step="0.01" value="0.3">
+    </label>
+
+    <label>light direction (x): 
+        <input type="range" id="lightXSlider" min="-2" max="2" step="0.1" value="1">
+    </label>
+
+    <label>light direction (y): 
+        <input type="range" id="lightYSlider" min="-2" max="2" step="0.1" value="1">
+    </label>
+
+    <label>light direction (z): 
+        <input type="range" id="lightZSlider" min="-2" max="2" step="0.1" value="-1">
+    </label>
+</div>
+
+<script>
 
 // Simple vector in 3D with numbers for x, y and z
 class Vec3
@@ -21,41 +43,41 @@ class Vec3
     }
 
     // Add other vector to this one and return the result
-    add(other)
-    {
-        return new Vec3(this.x + other.x, this.y + other.y, this.z + other.z)
+    add(other) 
+    { 
+        return new Vec3(this.x + other.x, this.y + other.y, this.z + other.z) 
     }
 
     // Subtract other vector from this one and return the result
-    minus(other)
-    {
-        return new Vec3(this.x - other.x, this.y - other.y, this.z - other.z)
+    minus(other) 
+    { 
+        return new Vec3(this.x - other.x, this.y - other.y, this.z - other.z) 
     }
 
     // Multiply other vector by this one and return the result
-    multiply(other)
-    {
-        return new Vec3(this.x * other.x, this.y * other.y, this.z * other.z)
-    }
-
-    // Scale this vector by the number scalar and return the result
-    scale(scalar)
-    {
-        return new Vec3(this.x * scalar, this.y * scalar, this.z * scalar)
+    multiply(other) 
+    { 
+        return new Vec3(this.x * other.x, this.y * other.y, this.z * other.z) 
     }
     
+    // Scale this vector by the number scalar and return the result
+    scale(scalar) 
+    { 
+        return new Vec3(this.x * scalar, this.y * scalar, this.z * scalar) 
+    }
+
     // Calculate the dot product of this vector with the other and return the result
     dot(other) 
     {
-        return this.x * other.x + this.y * other.y + this.z * other.z
+         return this.x * other.x + this.y * other.y + this.z * other.z 
     }
 
     // Calculate and return the magnitude of this vector
     magnitude() 
-    {
-        return Math.sqrt(this.magnitudeSquared())
+    { 
+        return Math.sqrt(this.dot(this)) 
     }
-    
+
     // Calculate and return the magnitude of this vector without the square root
     magnitudeSquared() 
     {
@@ -64,9 +86,9 @@ class Vec3
 
     // Return a normalised version of this vector
     normalised() 
-    {
-    let mag = this.magnitude()
-    return new Vec3(this.x / mag, this.y / mag, this.z / mag)
+    { 
+        let mag = this.magnitude() 
+        return new Vec3(this.x / mag, this.y / mag, this.z / mag)
     }
 }
 
@@ -80,7 +102,7 @@ class Sphere
         this.colour = colour
     }
 
-    // Calculate the point on the sphere  where the ray intersects using 
+    // Calculate the point on the sphere where the ray intersects using 
     // a quadratic equation and return the t value of the ray for that point
     // If two solutions exist return the minus solution
     // If no solutions exist return -1
@@ -92,20 +114,15 @@ class Sphere
         let c = ce.dot(ce) - this.radius * this.radius
         let discr = b * b - 4 * a * c
 
-        if (discr < 0)
-        {
-            return -1
-        }
-        else
-        {
-            return (-b - Math.sqrt(discr)) / (2.0 * a)
-        }
+        if (discr < 0) return -1
+        return (-b - Math.sqrt(discr)) / (2.0 * a)
     }
 }
 
-//global light 
-let lightDirection = new Vec3(-1.1, -1.3, -1.5).normalised()
-let negLightDirection = new Vec3(-lightDirection.x, -lightDirection.y, -lightDirection.z)
+// light variable
+let lightDir = new Vec3(1, 1, -1).normalised()
+let ambientStr = 0.5
+let specStr = 0.3
 
 // Ray which has an origin and direction, both are Vec3s
 class Ray
@@ -118,7 +135,9 @@ class Ray
 
     // Calculate and return the point in space (a Vec3) for this ray for the given value of t
     pointAt(t) 
-    {return this.origin.add(this.direction.scale(t))}
+    { 
+        return this.origin.add(this.direction.scale(t)) 
+    }
 }
 
 // The result of casting a ray into our scene
@@ -126,9 +145,9 @@ class Ray
 // Normal is the normal unit vector of the sphere at the intersection point
 // t is the t value along the ray where the intersection point is.  This value should, be -1 when the ray hits nothing
 // SphereIndex is the array index of the sphere hit by the ray
-class RayCastResult
+class RayCastResult 
 {
-    constructor(position, normal, t, sphereIndex)
+    constructor(position, normal, t, sphereIndex) 
     {
         this.position = position
         this.normal = normal
@@ -137,118 +156,139 @@ class RayCastResult
     }
 }
 
-// Calculate the intersection point and normal when a ray hits a sphere. Returns a RayCastResult.
-function hit(ray, t, sphereIndex) 
-{
-    let intersectionPoint = ray.pointAt(t)
-    let intersectionNormal = intersectionPoint.minus(spheres[sphereIndex].centre).normalised()
-    return new RayCastResult(intersectionPoint, intersectionNormal, t, sphereIndex)   
-}
 
-// Return a RayCastResult when a ray misses everything in the scene
-function miss()
-{
-    return new RayCastResult(new Vec3(0,0,0), new Vec3(0,0,0), -1, -1)
-}
-
-// Check whether a ray hits anything in the scene and return a RayCast Result
-function traceRay(ray)
-{
-    let t = 1000000
-    let closestSphereIndex = -1
-
-    for (let i = 0; i < spheres.length; i++) 
-    {
-        let current_t = spheres[i].rayIntersects(ray)
-        if (current_t > 0 && current_t < t) 
-        {  
-            t = current_t
-            closestSphereIndex = i
-        }
-    }
-
-    if (closestSphereIndex < 0) return miss()
-    return hit(ray, t, closestSphereIndex)
-
-}
-
-// Calculate and return the background colour based on the ray
-function backgroundColour(ray)
-{
-    let white = new Vec3(1, 1, 1)
-    let blue = new Vec3(0.3, 0.5, 0.9)
-    t = 0.5 * (ray.direction.y + 1)
-
-        return white.scale(1 - t).add(blue.scale(t)) // Blue
-}
-
-// Returns the colour the ray should have as a Vec3 with RGB values in [0,1]
-function rayColour(ray) 
-{
-    let castResult = traceRay(ray)
-    if(castResult.t < 0) return backgroundColour(ray)
-    
-    let albedo = spheres[castResult.sphereIndex].colour
-    let diff = Math.max(castResult.normal.dot(negLightDirection), 0)
-    let colour = albedo.scale(diff)
-
-    return colour
-
-}
-
-// Sets a pixel at (x, y) in the canvas with an RGB Vec3
-function setPixel(x, y, colour)
-{
-    var c = document.getElementById("canvas")
-    var ctx = c.getContext("2d")
-    ctx.fillStyle = "rgba("+colour.x+","+colour.y+","+colour.z+","+1+")"
-    ctx.fillRect(x, c.height - y, 1, 1)
-}
 
 const spheres = new Array(
     new Sphere(new Vec3(0,0,-1), 0.3, new Vec3(1,0,0)),       // Red sphere
     new Sphere(new Vec3(0,0.2,-0.8), 0.15, new Vec3(0,0,1)),  // Blue sphere
     new Sphere(new Vec3(0,-100.5,-1), 100, new Vec3(0,1,0))   // Big green sphere
-    );
-
-
-// Main code
-let imageWidth = document.getElementById("canvas").width
-let imageHeight = document.getElementById("canvas").height
-let aspectRatio = document.getElementById("canvas").height / document.getElementById("canvas").width
-
-
-let viewportWidth = 2
-let viewportHeight = viewportWidth * aspectRatio
-let focalLength = 1.0
-
-let camPosition = new Vec3(0, 0, 0)
-let horizontal = new Vec3(viewportWidth, 0, 0)
-let vertical = new Vec3(0, viewportHeight, 0)
-let lowerLeftCorner = camPosition.minus(horizontal.scale(0.5)).minus(vertical.scale(0.5)).minus(new Vec3(0, 0, focalLength))
-
-let colour = new Vec3(255,255,0)
-
-for (let i = 0; i < imageWidth; i++)
-{
-    for (let j = 0; j <= imageHeight; j++)
+)
+// Check whether a ray hits anything in the scene and return a RayCast Result
+// calcs the intersection point so no need for hit() now
+function traceRay(ray) {
+    let closestT = Infinity // better if i want to start adding spheres or expand the scene
+    let closestSphereIndex = -1 
+    for (let i = 0; i < spheres.length; i++) 
     {
-        let u = i / (imageWidth - 1)
-        let v = j / (imageHeight - 1)
-        setPixel(i,j,colour)
-        colour.x = u * 250
-        colour.y = v * 250
-
-        let ray = new Ray
-        (
-            camPosition,
-            lowerLeftCorner.add(horizontal.scale(u)).add(vertical.scale(v)).minus(camPosition)
-        )
-
-        colour = rayColour(ray).scale(255)
-        setPixel(i, j, colour)
+        let t = spheres[i].rayIntersects(ray)
+        if (t > 0 && t < closestT) 
+        {
+            closestT = t //uopdates the closest intersection
+            closestSphereIndex = i // tracks which of  the sphere got hit
+        }
     }
+
+    if (closestSphereIndex === -1) 
+    {
+        return new RayCastResult(new Vec3(0, 0, 0), new Vec3(0, 0, 0), -1, -1)
+    }
+
+    let hitPoint = ray.pointAt(closestT)
+    let normal = hitPoint.minus(spheres[closestSphereIndex].centre).normalised()
+
+    return new RayCastResult(hitPoint, normal, closestT, closestSphereIndex)
 }
+
+
+// Returns the colour the ray should have as a Vec3 with RGB values in [0,1]
+function rayColour(ray) 
+{
+    let castResult = traceRay(ray)
+    if (castResult.t < 0) return new Vec3(0.3, 0.5, 0.9) // replaces backgroundColour and miss function
+
+    let albedo = spheres[castResult.sphereIndex].colour
+    let normal = castResult.normal
+    let viewDir = ray.direction.scale(-1).normalised()
+    let reflectFact = lightDir.minus(normal.scale(2 * normal.dot(lightDir))).normalised()
+
+    let ambient = albedo.scale(ambientStr)
+    let diffuse = albedo.scale(Math.max(normal.dot(lightDir.scale(-1)), 0))
+    let specular = new Vec3(2, 2, 2).scale(specStr * Math.pow(Math.max(viewDir.dot(reflectFact), 0), 32))
+
+    return ambient.add(diffuse).add(specular)
+}
+
+function setPixel(imageData, index, r, g, b, a) // a is opacity 
+{
+    imageData.data.set([r, g, b, a], index) //reduces the times i'd have to type imageData, also easier to manage
+}
+
+// updates scene
+function render()
+{
+    let canvas = document.getElementById("canvas")
+    let ctx = canvas.getContext("2d")
+    let imageData = ctx.createImageData(canvas.width, canvas.height) //needed for direct pixel manipulation 
+
+    let imageWidth = canvas.width 
+    let imageHeight = canvas.height 
+    let aspectRatio = canvas.height / canvas.width
+    
+    let viewportWidth = 2
+    let viewportHeight = viewportWidth * aspectRatio
+    let focalLength = 1.0
+
+    let camPosition = new Vec3(0, 0, 0)
+    let horizontal = new Vec3(viewportWidth, 0, 0)
+    let vertical = new Vec3(0, viewportHeight, 0)
+    let lowerLeftCorner = camPosition.minus(horizontal.scale(0.5)).minus(vertical.scale(0.5)).minus(new Vec3(0, 0, focalLength))
+
+    for (let i = 0; i < imageWidth; i++)
+    {
+    for (let j = 0; j < imageHeight; j++)
+
+        {
+            let u = i / (imageWidth - 1) 
+            let v = 1 - (j / (imageHeight - 1))
+            let ray = new Ray(camPosition, lowerLeftCorner.add(horizontal.scale(u)).add(vertical.scale(v)).minus(camPosition).normalised())
+
+            let colour = rayColour(ray).scale(255)
+            let index = (j * canvas.width + i) * 4
+
+            setPixel(imageData, index, colour.x, colour.y, colour.z, 255)
+        }
+    }
+
+    ctx.putImageData(imageData, 0, 0)
+}
+
+// updates light then renders again
+function getSliderValue(id) 
+{
+    return parseFloat(document.getElementById(id).value)
+}
+
+function updateLightDir() 
+{
+    lightDir = new Vec3
+    (
+        getSliderValue("lightXSlider"),
+        getSliderValue("lightYSlider"),
+        getSliderValue("lightZSlider")
+    ).normalised()
+}
+
+function updateLightStr() 
+{
+    ambientStr = getSliderValue("ambientSlider")
+    specStr = getSliderValue("specularSlider")
+}
+
+function updateLight() 
+{
+    updateLightDir()
+    updateLightStr()
+    render()
+}
+
+["ambientSlider", "specularSlider", "lightXSlider", "lightYSlider", "lightZSlider"].forEach
+(id => 
+{
+    document.getElementById(id).addEventListener("input", updateLight)
+}
+)
+
+render()
 
 </script>
 
