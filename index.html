@@ -53,7 +53,7 @@ class Vec3
     // Calculate and return the magnitude of this vector
     magnitude() 
     {
-        return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+        return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z)
     }
     
     // Calculate and return the magnitude of this vector without the square root
@@ -104,7 +104,7 @@ class Sphere
 }
 
 //global light 
-let lightDirection = new Vec3(1, 1, -1).normalised()
+let lightDirection = new Vec3(0.5, 0.5, -1).normalised()
 let negLightDirection = new Vec3(-lightDirection.x, -lightDirection.y, -lightDirection.z)
 
 
@@ -168,7 +168,12 @@ function Shadow(point)
     let shadowRay = new Ray(shadowRayOrigin, lightDirection)
     let shadowResult = traceRay(shadowRay)
 
-    return shadowResult.t > 0
+    if (shadowResult.t > 0) 
+    {
+        return true
+    }
+    
+    return false 
 
     
 }
@@ -187,7 +192,7 @@ function rayColour(ray)
     let reflectDir = lightDirection.minus(normal.scale(2 * normal.dot(lightDirection))).normalised()
 
     // ambient light
-    let ambientStrength = 0.2
+    let ambientStrength = 0.05
     let ambient = albedo.scale(ambientStrength)
 
     //if light is blocked off then its considered in shadow, which lowers diffuse n spec lighting 
@@ -197,20 +202,19 @@ function rayColour(ray)
     let diffuse = new Vec3(0,0,0)
     if (!inShadow)
     {
-    let diff = Math.max(normal.dot(negLightDirection), 0)
+    let diff = Math.max(normal.dot(lightDirection), 0)
     diffuse = albedo.scale(diff)
     }
     
     // spec light
-    let specular = new Vec3(0, 0, 0)
+    let specular = new Vec3(1, 1, 1)
     if (!inShadow)
     {
         let lightColour = new Vec3(1, 1, 1) 
-        let specularStrength = 0.3 
+        let specularStrength = 0.1 
         let spec = Math.pow(Math.max(viewDir.dot(reflectDir), 0), 32)
         specular = lightColour.scale(specularStrength * spec)
     }
-
     
 
     return ambient.add(diffuse).add(specular)
@@ -221,9 +225,9 @@ function setPixel(x, y, colour)
 {
     var c = document.getElementById("canvas")
     var ctx = c.getContext("2d")
-    ctx.fillStyle = "rgb("+colour.x * 255+","+colour.y * 255+","+colour.z * 255+")"
+    ctx.fillStyle = "rgb("+Math.round(colour.x * 255)+","+Math.round(colour.y * 255)+","+Math.round(colour.z * 255)+")"
     ctx.fillRect(x, c.height - y, 1, 1)
-}
+}    
 
 const spheres = new Array(
     new Sphere(new Vec3(0,0,-1), 0.3, new Vec3(1,0,0)),       // Red sphere
@@ -247,12 +251,14 @@ let lowerLeftCorner = camPosition.minus(horizontal.scale(0.5)).minus(vertical.sc
 
 for (let i = 0; i < imageWidth; i++)
 {
-    for (let j = 0; j <= imageHeight; j++)
+    for (let j = 0; j < imageHeight; j++)
     {
         let u = i / (imageWidth - 1)
         let v = j / (imageHeight - 1)
         let ray = new Ray(camPosition, lowerLeftCorner.add(horizontal.scale(u)).add(vertical.scale(v)).minus(camPosition))
-        setPixel(i, j, rayColour(ray).scale(255))
+        colour = rayColour(ray).scale(255)
+        setPixel(i,j,colour)
+
     }
 }
 
