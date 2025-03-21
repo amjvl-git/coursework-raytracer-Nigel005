@@ -104,8 +104,9 @@ class Sphere
 }
 
 //global light 
-let lightDirection = new Vec3(-1.1, -1.3, -1.5).normalised()
+let lightDirection = new Vec3(1, 1, -1).normalised()
 let negLightDirection = new Vec3(-lightDirection.x, -lightDirection.y, -lightDirection.z)
+
 
 // Ray which has an origin and direction, both are Vec3s
 class Ray
@@ -126,9 +127,9 @@ class Ray
 // Normal is the normal unit vector of the sphere at the intersection point
 // t is the t value along the ray where the intersection point is.  This value should, be -1 when the ray hits nothing
 // SphereIndex is the array index of the sphere hit by the ray
-class RayCastResult
+class RayCastResult 
 {
-    constructor(position, normal, t, sphereIndex)
+    constructor(position, normal, t, sphereIndex) 
     {
         this.position = position
         this.normal = normal
@@ -137,24 +138,11 @@ class RayCastResult
     }
 }
 
-// Calculate the intersection point and normal when a ray hits a sphere. Returns a RayCastResult.
-function hit(ray, t, sphereIndex) 
-{
-    let intersectionPoint = ray.pointAt(t)
-    let intersectionNormal = intersectionPoint.minus(spheres[sphereIndex].centre).normalised()
-    return new RayCastResult(intersectionPoint, intersectionNormal, t, sphereIndex)   
-}
-
-// Return a RayCastResult when a ray misses everything in the scene
-function miss()
-{
-    return new RayCastResult(new Vec3(0,0,0), new Vec3(0,0,0), -1, -1)
-}
-
 // Check whether a ray hits anything in the scene and return a RayCast Result
+// since this chesk for the intersect i merged hit() function into it
 function traceRay(ray)
 {
-    let t = 1000000
+     let t = 1000000
     let closestSphereIndex = -1
 
     for (let i = 0; i < spheres.length; i++) 
@@ -167,33 +155,65 @@ function traceRay(ray)
         }
     }
 
-    if (closestSphereIndex < 0) return miss()
-    return hit(ray, t, closestSphereIndex)
+    if (closestSphereIndex < 0) return new RayCastResult(new Vec3(0,0,0), new Vec3(0,0,0), -1, -1)
 
+    let intersectionPoint = ray.pointAt(t)
+    let intersectionNormal = intersectionPoint.minus(spheres[closestSphereIndex].centre).normalised()
+    return new RayCastResult(intersectionPoint, intersectionNormal, t, closestSphereIndex)  
 }
 
-// Calculate and return the background colour based on the ray
-function backgroundColour(ray)
+function Shadow(point)
 {
-    let white = new Vec3(1, 1, 1)
-    let blue = new Vec3(0.3, 0.5, 0.9)
-    t = 0.5 * (ray.direction.y + 1)
+    let shadowRayOrigin = point.add(lightDirection.scale(0.001))
+    let shadowRay = new Ray(shadowRayOrigin, lightDirection)
+    let shadowResult = traceRay(shadowRay)
 
-        return white.scale(1 - t).add(blue.scale(t)) // Blue
+    return shadowResult.t > 0
+
+    
 }
+// Calculate and return the background colour based on the ray
+//function backgroundColour(ray) not needed anymore (moved it to the rayColour function) 
 
 // Returns the colour the ray should have as a Vec3 with RGB values in [0,1]
 function rayColour(ray) 
 {
     let castResult = traceRay(ray)
-    if(castResult.t < 0) return backgroundColour(ray)
-    
+    if (castResult.t < 0) return new Vec3(0.3, 0.5, 0.9) 
+
     let albedo = spheres[castResult.sphereIndex].colour
-    let diff = Math.max(castResult.normal.dot(negLightDirection), 0)
-    let colour = albedo.scale(diff)
+    let normal = castResult.normal
+    let viewDir = ray.direction.scale(-1).normalised()
+    let reflectDir = lightDirection.minus(normal.scale(2 * normal.dot(lightDirection))).normalised()
 
-    return colour
+    // ambient light
+    let ambientStrength = 0.2
+    let ambient = albedo.scale(ambientStrength)
 
+    //if light is blocked off then its considered in shadow, which lowers diffuse n spec lighting 
+    let inShadow = Shadow(castResult.position)
+
+    // diffuse lighting
+    let diffuse = new Vec3(0,0,0)
+    if (!inShadow)
+    {
+    let diff = Math.max(normal.dot(negLightDirection), 0)
+    diffuse = albedo.scale(diff)
+    }
+    
+    // spec light
+    let specular = new Vec3(0, 0, 0)
+    if (!inShadow)
+    {
+        let lightColour = new Vec3(2, 2, 2) 
+        let specularStrength = 0.3 
+        let spec = Math.pow(Math.max(viewDir.dot(reflectDir), 0), 32)
+        specular = lightColour.scale(specularStrength * spec)
+    }
+
+    
+
+    return ambient.add(diffuse).add(specular)
 }
 
 // Sets a pixel at (x, y) in the canvas with an RGB Vec3
@@ -201,7 +221,7 @@ function setPixel(x, y, colour)
 {
     var c = document.getElementById("canvas")
     var ctx = c.getContext("2d")
-    ctx.fillStyle = "rgba("+colour.x+","+colour.y+","+colour.z+","+1+")"
+    ctx.fillStyle = "rgb("+colour.x * 255+","+colour.y * 255+","+colour.z * 255+")"
     ctx.fillRect(x, c.height - y, 1, 1)
 }
 
@@ -209,14 +229,12 @@ const spheres = new Array(
     new Sphere(new Vec3(0,0,-1), 0.3, new Vec3(1,0,0)),       // Red sphere
     new Sphere(new Vec3(0,0.2,-0.8), 0.15, new Vec3(0,0,1)),  // Blue sphere
     new Sphere(new Vec3(0,-100.5,-1), 100, new Vec3(0,1,0))   // Big green sphere
-    );
-
+    )
 
 // Main code
 let imageWidth = document.getElementById("canvas").width
 let imageHeight = document.getElementById("canvas").height
-let aspectRatio = document.getElementById("canvas").height / document.getElementById("canvas").width
-
+let aspectRatio = imageHeight / imageWidth
 
 let viewportWidth = 2
 let viewportHeight = viewportWidth * aspectRatio
@@ -227,26 +245,14 @@ let horizontal = new Vec3(viewportWidth, 0, 0)
 let vertical = new Vec3(0, viewportHeight, 0)
 let lowerLeftCorner = camPosition.minus(horizontal.scale(0.5)).minus(vertical.scale(0.5)).minus(new Vec3(0, 0, focalLength))
 
-let colour = new Vec3(255,255,0)
-
 for (let i = 0; i < imageWidth; i++)
 {
     for (let j = 0; j <= imageHeight; j++)
     {
         let u = i / (imageWidth - 1)
         let v = j / (imageHeight - 1)
-        setPixel(i,j,colour)
-        colour.x = u * 250
-        colour.y = v * 250
-
-        let ray = new Ray
-        (
-            camPosition,
-            lowerLeftCorner.add(horizontal.scale(u)).add(vertical.scale(v)).minus(camPosition)
-        )
-
-        colour = rayColour(ray).scale(255)
-        setPixel(i, j, colour)
+        let ray = new Ray(camPosition, lowerLeftCorner.add(horizontal.scale(u)).add(vertical.scale(v)).minus(camPosition))
+        setPixel(i, j, rayColour(ray).scale(255))
     }
 }
 
